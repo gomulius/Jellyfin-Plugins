@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        plugin:
+          - Jellyfin.Plugin.ContinuousTV
+          - Jellyfin.Plugin.TranslationTags
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # NOTE: Jellyfin 12.x assemblies are not on NuGet. CI cannot restore them
+      # automatically. To build in CI you must make the reference assemblies
+      # available (e.g. download a Jellyfin server build) and point
+      # JellyfinServerDir at them.
+      - name: Build ${{ matrix.plugin }}
+        run: dotnet build ${{ matrix.plugin }} -c Release -p:JellyfinServerDir="${{ github.workspace }}\\jellyfin-refs"
+        continue-on-error: true

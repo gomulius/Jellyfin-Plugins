@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8" />
+    <title>Translation Tags</title>
+</head>
+<body>
+<div id="translationTagsPage"
+     data-role="page"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-select">
+    <div data-role="content">
+        <div class="content-primary">
+
+            <!-- Styles are placed INSIDE the page div: Jellyfin strips <head> when
+                 loading a plugin config page, so a <head> <style> block is ignored. -->
+            <style>
+                #translationTagsPage .tt-intro { color:#999; font-size:.9em; margin:.2em 0 .8em; }
+
+                #translationTagsPage .tt-toolbar {
+                    position: relative; z-index: 10;
+                    background: #101010; padding: 10px 0 8px;
+                    border-bottom: 1px solid #2c2c2c; margin-bottom: 10px;
+                }
+                #translationTagsPage .tt-toolbar.tt-fixed {
+                    box-shadow: 0 4px 10px rgba(0,0,0,.6);
+                    padding-left: 12px; padding-right: 12px;
+                    border-bottom: 1px solid #3a3a3a;
+                }
+                #translationTagsPage .tt-row { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+                #translationTagsPage .tt-row + .tt-row { margin-top:8px; }
+                #translationTagsPage .tt-field { display:flex; flex-direction:column; gap:2px; }
+                #translationTagsPage .tt-field label { font-size:.75em; color:#aaa; }
+                #translationTagsPage select.tt-input,
+                #translationTagsPage input.tt-input {
+                    background:#1c1c1c; color:#eee; border:1px solid #3a3a3a;
+                    border-radius:4px; padding:6px 8px; font-size:.9em; min-height:32px;
+                }
+                #translationTagsPage select.tt-input { min-width:180px; }
+
+                #translationTagsPage .tt-smallbtn {
+                    background:#2a2a2a; color:#ddd; border:1px solid #444;
+                    border-radius:4px; padding:5px 10px; font-size:.82em; cursor:pointer; min-height:32px;
+                }
+                #translationTagsPage .tt-smallbtn:hover { background:#353535; }
+
+                #translationTagsPage .tt-tagbar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+                #translationTagsPage .tt-tagbar .tt-label { font-size:.8em; color:#aaa; margin-right:2px; }
+                #translationTagsPage .tt-chip {
+                    border-radius:14px; padding:4px 12px; font-size:.82em; cursor:pointer;
+                    border:1px solid transparent; user-select:none; line-height:1.3;
+                }
+                #translationTagsPage .tt-chip.add { background:#00a4dc; color:#fff; }
+                #translationTagsPage .tt-chip.add:hover { background:#0bb6ef; }
+                #translationTagsPage .tt-chip.rem {
+                    background:transparent; color:#e06a6a; border-color:#6a3030;
+                }
+                #translationTagsPage .tt-chip.rem:hover { background:#2a1515; }
+                #translationTagsPage .tt-chip.clearall {
+                    background:#8a1f1f; color:#fff; border:1px solid #b33; margin-left:8px; font-weight:600;
+                }
+                #translationTagsPage .tt-chip.clearall:hover { background:#b02626; }
+                #translationTagsPage .tt-chip.coll { background:#2a2a2a; color:#ddd; border:1px solid #4a7; }
+                #translationTagsPage .tt-chip.coll:hover { background:#1e3528; }
+
+                #translationTagsPage .tt-count { color:#888; font-size:.8em; margin:6px 0; }
+
+                #translationTagsPage .tt-grid {
+                    display:grid;
+                    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+                    gap:14px;
+                }
+                #translationTagsPage .tt-card {
+                    position:relative; cursor:pointer; border-radius:6px; overflow:hidden;
+                    background:#181818; border:3px solid transparent; transition:border-color .12s;
+                }
+                #translationTagsPage .tt-card.selected { border-color:#00a4dc; }
+                #translationTagsPage .tt-poster {
+                    width:100%; aspect-ratio:2/3; object-fit:cover; display:block; background:#333;
+                }
+                #translationTagsPage .tt-noposter {
+                    width:100%; aspect-ratio:2/3; display:flex; align-items:center; justify-content:center;
+                    text-align:center; padding:6px; box-sizing:border-box; font-size:.8em; color:#aaa; background:#262626;
+                }
+                #translationTagsPage .tt-title {
+                    padding:5px 7px 2px; font-size:.8em; line-height:1.25;
+                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                }
+                #translationTagsPage .tt-tags { padding:0 7px 7px; min-height:1.1em; }
+                #translationTagsPage .tt-tagchip {
+                    display:inline-block; background:#00a4dc; color:#fff; border-radius:3px;
+                    padding:0 5px; margin:1px; font-size:.68em;
+                }
+                #translationTagsPage .tt-check {
+                    position:absolute; top:6px; left:6px; width:22px; height:22px; border-radius:50%;
+                    background:rgba(0,0,0,.55); border:2px solid #fff; display:flex; align-items:center;
+                    justify-content:center; color:#fff; font-weight:bold; font-size:14px;
+                }
+                #translationTagsPage .tt-card.selected .tt-check { background:#00a4dc; }
+                #translationTagsPage .tt-play {
+                    position:absolute; top:6px; right:6px; width:30px; height:30px; border-radius:50%;
+                    background:rgba(0,0,0,.6); border:2px solid #fff; color:#fff; display:flex;
+                    align-items:center; justify-content:center; font-size:14px; text-decoration:none;
+                }
+                #translationTagsPage .tt-play:hover { background:#00a4dc; }
+            </style>
+
+            <h2 class="sectionTitle">Translation Tags</h2>
+            <p class="tt-intro">
+                Wybierz bibliotekę, kliknij ▶ żeby obejrzeć (nowa karta) i zweryfikować tłumaczenie,
+                zaznacz okładki i przypisz tag. Tagi są natywne &ndash; filtrujesz potem:
+                <em>Filmy &rarr; Filtry &rarr; Tagi</em>.
+            </p>
+
+            <div class="tt-toolbar">
+                <div class="tt-row">
+                    <div class="tt-field">
+                        <label for="selLibrary">Biblioteka</label>
+                        <select class="tt-input" id="selLibrary"></select>
+                    </div>
+                    <div class="tt-field">
+                        <label for="txtSearch">Szukaj</label>
+                        <input class="tt-input" type="text" id="txtSearch" placeholder="tytuł..." />
+                    </div>
+                    <div class="tt-field">
+                        <label for="selFilter">Pokaż</label>
+                        <select class="tt-input" id="selFilter">
+                            <option value="">Wszystkie</option>
+                            <option value="__untagged__">Bez tagu</option>
+                        </select>
+                    </div>
+                    <button type="button" class="tt-smallbtn" id="btnSelectAll">Zaznacz widoczne</button>
+                    <button type="button" class="tt-smallbtn" id="btnClearSel">Wyczyść</button>
+                    <span id="selCount" class="tt-count" style="margin:0 0 4px;"></span>
+                </div>
+
+                <div class="tt-row">
+                    <div class="tt-tagbar" id="addBar"></div>
+                </div>
+                <div class="tt-row">
+                    <div class="tt-tagbar" id="remBar"></div>
+                </div>
+                <div class="tt-row">
+                    <div class="tt-tagbar" id="customBar">
+                        <span class="tt-label">Własny tag:</span>
+                        <input class="tt-input" type="text" id="txtCustomTag" placeholder="wpisz tag..." style="min-width:160px;" />
+                        <span class="tt-chip add" id="chipCustomAdd">Przypisz</span>
+                        <span class="tt-chip rem" id="chipCustomRem">Usuń</span>
+                    </div>
+                </div>
+                <div class="tt-row">
+                    <div class="tt-tagbar" id="collBar"></div>
+                </div>
+            </div>
+
+            <div id="itemCount" class="tt-count"></div>
+            <div id="grid" class="tt-grid"></div>
+
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var state = { items: [], tags: [], selected: {} };
+
+            function page() { return document.querySelector('#translationTagsPage'); }
+
+            function api(path, method, body, expectJson) {
+                var m = method || 'GET';
+                var opts = { url: ApiClient.getUrl('Plugins/TranslationTags/' + path), type: m, contentType: 'application/json' };
+                if (m === 'GET' || expectJson) { opts.dataType = 'json'; }
+                if (body !== undefined) { opts.data = JSON.stringify(body); }
+                return ApiClient.ajax(opts);
+            }
+
+            function escapeHtml(s) {
+                return (s || '').replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
+            }
+
+            function selectedIds() { return Object.keys(state.selected).filter(function (k) { return state.selected[k]; }); }
+
+            function updateSelCount() {
+                var n = selectedIds().length;
+                page().querySelector('#selCount').textContent = n ? (n + ' zaznaczonych') : 'nic nie zaznaczono';
+            }
+
+            function posterUrl(item) {
+                if (!item.PrimaryImageTag) { return null; }
+                return ApiClient.getUrl('Items/' + item.Id + '/Images/Primary', {
+                    tag: item.PrimaryImageTag, fillHeight: 300, quality: 90
+                });
+            }
+
+            function detailsUrl(item) {
+                // Opens the item's details page (full player with audio/subtitle choice).
+                return ApiClient.serverAddress() + '/web/#/details?id=' + item.Id
+                    + '&serverId=' + ApiClient.serverId();
+            }
+
+            // ----- tag bars -----
+            function renderTagBars() {
+                var addBar = page().querySelector('#addBar');
+                addBar.innerHTML = '<span class="tt-label">Przypisz zaznaczonym:</span>'
+                    + state.tags.map(function (t) {
+                        return '<span class="tt-chip add" data-tag="' + escapeHtml(t) + '">' + escapeHtml(t) + '</span>';
+                    }).join('');
+                addBar.querySelectorAll('.tt-chip.add').forEach(function (c) {
+                    c.addEventListener('click', function () { bulk('Add', c.getAttribute('data-tag')); });
+                });
+
+                var remBar = page().querySelector('#remBar');
+                remBar.innerHTML = '<span class="tt-label">Usuń z zaznaczonych:</span>'
+                    + state.tags.map(function (t) {
+                        return '<span class="tt-chip rem" data-tag="' + escapeHtml(t) + '">' + escapeHtml(t) + '</span>';
+                    }).join('')
+                    + '<span class="tt-chip clearall" id="chipClearAll">\u2716 Usuń WSZYSTKIE tagi</span>';
+                remBar.querySelectorAll('.tt-chip.rem').forEach(function (c) {
+                    c.addEventListener('click', function () { bulk('Remove', c.getAttribute('data-tag')); });
+                });
+                remBar.querySelector('#chipClearAll').addEventListener('click', clearAllTags);
+
+                var collBar = page().querySelector('#collBar');
+                collBar.innerHTML = '<span class="tt-label">Utwórz kolekcję z tagu:</span>'
+                    + state.tags.map(function (t) {
+                        return '<span class="tt-chip coll" data-tag="' + escapeHtml(t) + '">\uD83D\uDC1A ' + escapeHtml(t) + '</span>';
+                    }).join('');
+                collBar.querySelectorAll('.tt-chip.coll').forEach(function (c) {
+                    c.addEventListener('click', function () { createCollection(c.getAttribute('data-tag')); });
+                });
+
+                var sel = page().querySelector('#selFilter');
+                var cur = sel.value;
+                sel.innerHTML = '<option value="">Wszystkie</option><option value="__untagged__">Bez tagu</option>'
+                    + state.tags.map(function (t) { return '<option value="' + escapeHtml(t) + '">Tag: ' + escapeHtml(t) + '</option>'; }).join('');
+                sel.value = cur;
+            }
+
+            // ----- grid -----
+            function renderGrid() {
+                var grid = page().querySelector('#grid');
+                grid.innerHTML = state.items.map(function (it) {
+                    var sel = state.selected[it.Id] ? ' selected' : '';
+                    var url = posterUrl(it);
+                    var poster = url
+                        ? '<img class="tt-poster" loading="lazy" src="' + url + '" />'
+                        : '<div class="tt-noposter">' + escapeHtml(it.Name) + '</div>';
+                    var tags = (it.Tags || []).map(function (t) {
+                        return '<span class="tt-tagchip">' + escapeHtml(t) + '</span>';
+                    }).join('');
+                    var yr = it.ProductionYear ? ' (' + it.ProductionYear + ')' : '';
+                    return '<div class="tt-card' + sel + '" data-id="' + it.Id + '">'
+                        + '<div class="tt-check">' + (state.selected[it.Id] ? '\u2713' : '') + '</div>'
+                        + '<a class="tt-play" href="' + detailsUrl(it) + '" target="_blank" rel="noopener" title="Otwórz / odtwórz w nowej karcie">\u25B6</a>'
+                        + poster
+                        + '<div class="tt-title" title="' + escapeHtml(it.Name) + '">' + escapeHtml(it.Name) + yr + '</div>'
+                        + '<div class="tt-tags">' + tags + '</div>'
+                        + '</div>';
+                }).join('');
+
+                grid.querySelectorAll('.tt-card').forEach(function (card) {
+                    card.addEventListener('click', function (e) {
+                        // Clicking the play button must not toggle selection.
+                        if (e.target.closest('.tt-play')) { return; }
+                        var id = card.getAttribute('data-id');
+                        state.selected[id] = !state.selected[id];
+                        card.classList.toggle('selected', state.selected[id]);
+                        card.querySelector('.tt-check').textContent = state.selected[id] ? '\u2713' : '';
+                        updateSelCount();
+                    });
+                });
+
+                page().querySelector('#itemCount').textContent = state.items.length + ' pozycji';
+                updateSelCount();
+                if (state._recheckSticky) { state._recheckSticky(); }
+            }
+
+            function loadItems() {
+                Dashboard.showLoadingMsg();
+                var lib = page().querySelector('#selLibrary').value;
+                var search = page().querySelector('#txtSearch').value;
+                var filter = page().querySelector('#selFilter').value;
+                var q = 'Items?libraryId=' + encodeURIComponent(lib)
+                    + '&search=' + encodeURIComponent(search)
+                    + '&filterTag=' + encodeURIComponent(filter);
+                return api(q).then(function (list) {
+                    state.items = list;
+                    renderGrid();
+                    Dashboard.hideLoadingMsg();
+                }, function () { Dashboard.hideLoadingMsg(); });
+            }
+
+            function bulk(action, tag) {
+                var ids = selectedIds();
+                if (!ids.length) { Dashboard.alert('Najpierw zaznacz filmy (kliknij w okładki).'); return; }
+                Dashboard.showLoadingMsg();
+                api(action, 'POST', { ItemIds: ids, Tags: [tag] }, true).then(function () {
+                    loadItems();
+                }, function () { Dashboard.hideLoadingMsg(); });
+            }
+
+            function createCollection(tag) {
+                var def = 'Filmy: ' + tag;
+                var name = (window.prompt && window.prompt('Nazwa kolekcji:', def)) || def;
+                Dashboard.showLoadingMsg();
+                api('CreateCollection', 'POST', { Tag: tag, Name: name }, true).then(function (res) {
+                    Dashboard.hideLoadingMsg();
+                    if (res && res.created) {
+                        Dashboard.alert('Utworzono kolekcję „' + res.name + '" z ' + res.created + ' pozycjami. Znajdziesz ją w zakładce Collections.');
+                    } else {
+                        Dashboard.alert('Brak pozycji z tagiem „' + tag + '" \u2013 kolekcja nie została utworzona.');
+                    }
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Nie udało się utworzyć kolekcji.');
+                });
+            }
+
+            function clearAllTags() {
+                var ids = selectedIds();
+                if (!ids.length) { Dashboard.alert('Najpierw zaznacz filmy (kliknij w okładki).'); return; }
+                Dashboard.confirm(
+                    'Usunąć WSZYSTKIE tagi z ' + ids.length + ' zaznaczonych pozycji? Tej operacji nie można cofnąć.',
+                    'Usuń wszystkie tagi',
+                    function (ok) {
+                        if (!ok) { return; }
+                        Dashboard.showLoadingMsg();
+                        api('ClearAll', 'POST', { ItemIds: ids, Tags: [] }, true).then(function (res) {
+                            Dashboard.hideLoadingMsg();
+                            Dashboard.alert('Wyczyszczono tagi w ' + (res && res.updated !== undefined ? res.updated : ids.length) + ' pozycjach.');
+                            loadItems();
+                        }, function () { Dashboard.hideLoadingMsg(); });
+                    });
+            }
+
+            // ----- wire up -----
+            page().addEventListener('viewshow', function () {
+                Promise.all([api('Tags'), api('Libraries')]).then(function (res) {
+                    state.tags = res[0];
+                    renderTagBars();
+
+                    var libs = res[1] || [];
+                    var sel = page().querySelector('#selLibrary');
+                    sel.innerHTML = '<option value="">(wszystkie biblioteki)</option>'
+                        + libs.map(function (l) { return '<option value="' + l.Id + '">' + escapeHtml(l.Name) + '</option>'; }).join('');
+
+                    loadItems();
+                });
+            });
+
+            page().querySelector('#selLibrary').addEventListener('change', function () { state.selected = {}; loadItems(); });
+            page().querySelector('#selFilter').addEventListener('change', loadItems);
+
+            var searchTimer;
+            page().querySelector('#txtSearch').addEventListener('input', function () {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(loadItems, 300);
+            });
+
+            page().querySelector('#btnSelectAll').addEventListener('click', function () {
+                state.items.forEach(function (it) { state.selected[it.Id] = true; });
+                renderGrid();
+            });
+            page().querySelector('#btnClearSel').addEventListener('click', function () {
+                state.selected = {};
+                renderGrid();
+            });
+
+            function customTagValue() {
+                return (page().querySelector('#txtCustomTag').value || '').trim();
+            }
+
+            page().querySelector('#chipCustomAdd').addEventListener('click', function () {
+                var tag = customTagValue();
+                if (!tag) { Dashboard.alert('Wpisz najpierw nazwę tagu.'); return; }
+                bulk('Add', tag);
+            });
+            page().querySelector('#chipCustomRem').addEventListener('click', function () {
+                var tag = customTagValue();
+                if (!tag) { Dashboard.alert('Wpisz najpierw nazwę tagu.'); return; }
+                bulk('Remove', tag);
+            });
+            page().querySelector('#txtCustomTag').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    var tag = customTagValue();
+                    if (tag) { bulk('Add', tag); }
+                }
+            });
+
+            // ----- make the toolbar stick to the top while scrolling -----
+            // Jellyfin config pages scroll inside a nested container, so CSS
+            // position:sticky does not work. We emulate it with position:fixed.
+            function setupStickyToolbar() {
+                var toolbar = page().querySelector('.tt-toolbar');
+                if (!toolbar) { return; }
+
+                // Find the actual scrolling ancestor.
+                function scrollParent(el) {
+                    var node = el.parentElement;
+                    while (node) {
+                        var oy = window.getComputedStyle(node).overflowY;
+                        if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) {
+                            return node;
+                        }
+                        node = node.parentElement;
+                    }
+                    return window;
+                }
+
+                var scroller = scrollParent(toolbar);
+                var placeholder = document.createElement('div');
+                var fixed = false;
+
+                function topOffset() {
+                    // Leave room for Jellyfin's own top header bar if present.
+                    var hdr = document.querySelector('.skinHeader, .headerTop, [is="emby-header"]');
+                    return hdr ? hdr.getBoundingClientRect().height : 0;
+                }
+
+                function onScroll() {
+                    var ref = (scroller === window)
+                        ? toolbar.getBoundingClientRect().top
+                        : toolbar.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+                    var limit = (scroller === window) ? topOffset() : 0;
+
+                    if (!fixed && ref <= limit) {
+                        var rect = toolbar.getBoundingClientRect();
+                        placeholder.style.height = rect.height + 'px';
+                        toolbar.parentNode.insertBefore(placeholder, toolbar);
+                        toolbar.classList.add('tt-fixed');
+                        toolbar.style.position = 'fixed';
+                        toolbar.style.top = ((scroller === window) ? topOffset() : scroller.getBoundingClientRect().top) + 'px';
+                        toolbar.style.left = rect.left + 'px';
+                        toolbar.style.width = rect.width + 'px';
+                        fixed = true;
+                    } else if (fixed) {
+                        // Un-stick when the placeholder scrolls back into view.
+                        var pRef = (scroller === window)
+                            ? placeholder.getBoundingClientRect().top
+                            : placeholder.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+                        if (pRef > limit) {
+                            toolbar.classList.remove('tt-fixed');
+                            toolbar.style.position = '';
+                            toolbar.style.top = '';
+                            toolbar.style.left = '';
+                            toolbar.style.width = '';
+                            if (placeholder.parentNode) { placeholder.parentNode.removeChild(placeholder); }
+                            fixed = false;
+                        }
+                    }
+                }
+
+                function onResize() {
+                    if (fixed) {
+                        // Recompute horizontal geometry on layout changes.
+                        var ph = placeholder.getBoundingClientRect();
+                        toolbar.style.left = ph.left + 'px';
+                        toolbar.style.width = ph.width + 'px';
+                    }
+                }
+
+                var target = (scroller === window) ? window : scroller;
+                target.addEventListener('scroll', onScroll, { passive: true });
+                window.addEventListener('resize', onResize, { passive: true });
+                // Store so we can re-evaluate after the grid is (re)rendered.
+                state._recheckSticky = onScroll;
+            }
+
+            setupStickyToolbar();
+        })();
+    </script>
+</div>
+</body>
+</html>

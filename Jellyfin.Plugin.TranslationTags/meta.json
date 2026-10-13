@@ -1,0 +1,17 @@
+{
+  "category": "General",
+  "changelog": "Initial release: bulk translation tagging with Polish audio/subtitle auto-detection.",
+  "description": "Bulk-tag movies by translation type (Napisy, Lektor, Dubbing, Brak Tłumaczenia) and auto-detect Polish audio/subtitles. Tags are stored as native Jellyfin tags so the library can be filtered by them immediately.",
+  "guid": "c2f8b5e3-7d4a-4b9f-8e32-1a9d6b0c4f25",
+  "name": "Translation Tags",
+  "overview": "Tag movies by translation type and filter the library by tag.",
+  "owner": "local",
+  "targetAbi": "12.0.0.0",
+  "timestamp": "2026-10-13T09:00:00.0000000Z",
+  "version": "1.0.0.0",
+  "status": "Active",
+  "autoUpdate": false,
+  "assemblies": [
+    "Jellyfin.Plugin.TranslationTags.dll"
+  ]
+}

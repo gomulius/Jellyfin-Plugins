@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Continuous TV</title>
+</head>
+<body>
+<div id="continuousTvPage"
+     data-role="page"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div data-role="content">
+        <div class="content-primary">
+
+            <div class="verticalSection verticalSection-extrabottompadding">
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle">Continuous TV</h2>
+                </div>
+                <p class="fieldDescription">
+                    Create a never-ending, TV-style playlist that mixes the next unwatched episode from
+                    several series (and optional movies). Longer series are sampled proportionally more
+                    often than short ones.
+                </p>
+            </div>
+
+            <!-- ============ LIST OF SAVED PLAYLISTS ============ -->
+            <div class="verticalSection">
+                <h3 class="sectionTitle">Your smart playlists</h3>
+                <div id="playlistList"></div>
+                <button is="emby-button" type="button" id="btnNew" class="raised block button-submit">
+                    <span>Create new playlist</span>
+                </button>
+            </div>
+
+            <!-- ============ EDITOR ============ -->
+            <form id="editorForm" class="verticalSection" style="display:none;margin-top:2em;">
+                <h3 class="sectionTitle" id="editorTitle">New playlist</h3>
+                <input type="hidden" id="playlistId" />
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="txtName">Playlist name</label>
+                    <input is="emby-input" type="text" id="txtName" required />
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="selUser">Owner (user)</label>
+                    <select is="emby-select" id="selUser"></select>
+                    <div class="fieldDescription">Watch-state of this user decides which episode plays next.</div>
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="selWeight">Proportional weighting</label>
+                    <select is="emby-select" id="selWeight">
+                        <option value="0">By total episodes (long shows play more)</option>
+                        <option value="1">By remaining unwatched episodes</option>
+                        <option value="2">Equal (one each, round-robin)</option>
+                    </select>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="txtTarget">Number of items in the playlist</label>
+                    <input is="emby-input" type="number" id="txtTarget" min="1" max="1000" value="40" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="txtMovieWeight">Movie weight</label>
+                    <input is="emby-input" type="number" id="txtMovieWeight" min="0" max="50" value="2" />
+                    <div class="fieldDescription">How strongly movies compete against series for slots. 0 = only when nothing else left.</div>
+                </div>
+
+                <label class="emby-checkbox-label">
+                    <input is="emby-checkbox" type="checkbox" id="chkMissing" />
+                    <span>Include unaired / missing episodes</span>
+                </label>
+
+                <!-- SERIES PICKER -->
+                <div class="verticalSection" style="margin-top:1.5em;">
+                    <h4>Series</h4>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="text" id="txtSeriesSearch" placeholder="Search series..." />
+                    </div>
+                    <div id="seriesResults" class="checkboxList"
+                         style="max-height:220px;overflow:auto;border:1px solid #333;padding:.5em;"></div>
+                </div>
+
+                <!-- MOVIE PICKER -->
+                <div class="verticalSection" style="margin-top:1.5em;">
+                    <h4>Movies (optional)</h4>
+                    <div class="inputContainer">
+                        <input is="emby-input" type="text" id="txtMovieSearch" placeholder="Search movies..." />
+                    </div>
+                    <div id="movieResults" class="checkboxList"
+                         style="max-height:220px;overflow:auto;border:1px solid #333;padding:.5em;"></div>
+                </div>
+
+                <div style="margin-top:1.5em;">
+                    <button is="emby-button" type="submit" class="raised button-submit">
+                        <span>Save</span>
+                    </button>
+                    <button is="emby-button" type="button" id="btnGenerate" class="raised button-submit">
+                        <span>Save &amp; generate now</span>
+                    </button>
+                    <button is="emby-button" type="button" id="btnPreview" class="raised">
+                        <span>Preview order</span>
+                    </button>
+                    <button is="emby-button" type="button" id="btnCancel" class="raised">
+                        <span>Cancel</span>
+                    </button>
+                </div>
+
+                <div id="previewBox" class="verticalSection" style="display:none;margin-top:1.5em;">
+                    <h4>Preview (first items)</h4>
+                    <ol id="previewList" style="padding-left:1.5em;"></ol>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = "b1e7a4d2-6c3f-4a8e-9d21-7f0c5a9b3e14";
+
+            var state = {
+                series: [],   // {id,name,year}
+                movies: [],
+                selectedSeries: {}, // id -> name
+                selectedMovies: {}
+            };
+
+            function page() {
+                return document.querySelector('#continuousTvPage');
+            }
+
+            function api(path, method, body) {
+                var m = method || 'GET';
+                var url = ApiClient.getUrl('Plugins/ContinuousTv/' + path);
+                var opts = {
+                    url: url,
+                    type: m,
+                    contentType: 'application/json'
+                };
+                // Only expect a JSON body back for requests that actually return one.
+                // DELETE / Generate can return 204 No Content, and forcing dataType:'json'
+                // on an empty body makes the promise reject.
+                if (m === 'GET' || m === 'POST') {
+                    opts.dataType = 'json';
+                }
+                if (body !== undefined) {
+                    opts.data = JSON.stringify(body);
+                }
+                return ApiClient.ajax(opts);
+            }
+
+            // ---------- list of saved playlists ----------
+            function renderPlaylists(list) {
+                var html = '';
+                if (!list.length) {
+                    html = '<p class="fieldDescription">No playlists yet.</p>';
+                } else {
+                    html = '<div>';
+                    list.forEach(function (p) {
+                        html += '<div class="listItem" style="padding:.6em 0;border-bottom:1px solid #333;display:flex;align-items:center;">'
+                            + '<div style="flex:1;"><strong>' + escapeHtml(p.Name) + '</strong>'
+                            + '<br/><span class="fieldDescription">' + (p.SeriesIds ? p.SeriesIds.length : 0)
+                            + ' series, ' + (p.MovieIds ? p.MovieIds.length : 0) + ' movies, target '
+                            + p.TargetItemCount + '</span></div>'
+                            + '<button is="emby-button" type="button" class="raised btnEdit" data-id="' + p.Id + '"><span>Edit</span></button> '
+                            + '<button is="emby-button" type="button" class="raised btnGen" data-id="' + p.Id + '"><span>Generate</span></button> '
+                            + '<button is="emby-button" type="button" class="raised btnDel" data-id="' + p.Id + '"><span>Delete</span></button>'
+                            + '</div>';
+                    });
+                    html += '</div>';
+                }
+                var container = page().querySelector('#playlistList');
+                container.innerHTML = html;
+
+                container.querySelectorAll('.btnEdit').forEach(function (b) {
+                    b.addEventListener('click', function () { editPlaylist(b.getAttribute('data-id')); });
+                });
+                container.querySelectorAll('.btnGen').forEach(function (b) {
+                    b.addEventListener('click', function () { generate(b.getAttribute('data-id')); });
+                });
+                container.querySelectorAll('.btnDel').forEach(function (b) {
+                    b.addEventListener('click', function () { del(b.getAttribute('data-id')); });
+                });
+            }
+
+            function loadPlaylists() {
+                Dashboard.showLoadingMsg();
+                api('Playlists').then(function (list) {
+                    state.playlists = list;
+                    renderPlaylists(list);
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            // ---------- pickers ----------
+            function renderPicker(containerId, items, selectedMap) {
+                var html = '';
+                items.forEach(function (it) {
+                    var label = escapeHtml(it.Name) + (it.ProductionYear ? ' (' + it.ProductionYear + ')' : '');
+                    var checked = selectedMap[it.Id] ? ' checked' : '';
+                    html += '<label class="emby-checkbox-label" style="display:block;">'
+                        + '<input is="emby-checkbox" type="checkbox" class="pickItem" data-id="' + it.Id
+                        + '" data-name="' + escapeHtml(it.Name) + '"' + checked + ' />'
+                        + '<span>' + label + '</span></label>';
+                });
+                var c = page().querySelector('#' + containerId);
+                c.innerHTML = html;
+                c.querySelectorAll('.pickItem').forEach(function (cb) {
+                    cb.addEventListener('change', function () {
+                        var id = cb.getAttribute('data-id');
+                        var name = cb.getAttribute('data-name');
+                        if (cb.checked) { selectedMap[id] = name; } else { delete selectedMap[id]; }
+                    });
+                });
+            }
+
+            function loadSeries(search) {
+                api('Series?search=' + encodeURIComponent(search || '')).then(function (items) {
+                    state.series = items;
+                    renderPicker('seriesResults', items, state.selectedSeries);
+                });
+            }
+
+            function loadMovies(search) {
+                api('Movies?search=' + encodeURIComponent(search || '')).then(function (items) {
+                    state.movies = items;
+                    renderPicker('movieResults', items, state.selectedMovies);
+                });
+            }
+
+            function loadUsers(selectedId) {
+                return api('Users').then(function (users) {
+                    var sel = page().querySelector('#selUser');
+                    sel.innerHTML = users.map(function (u) {
+                        return '<option value="' + u.Id + '">' + escapeHtml(u.Name) + '</option>';
+                    }).join('');
+                    if (selectedId) { sel.value = selectedId; }
+                });
+            }
+
+            // ---------- editor ----------
+            function showEditor(show) {
+                page().querySelector('#editorForm').style.display = show ? 'block' : 'none';
+            }
+
+            function newPlaylist() {
+                state.selectedSeries = {};
+                state.selectedMovies = {};
+                page().querySelector('#playlistId').value = '';
+                page().querySelector('#txtName').value = 'Continuous TV';
+                page().querySelector('#txtTarget').value = 40;
+                page().querySelector('#txtMovieWeight').value = 2;
+                page().querySelector('#selWeight').value = '0';
+                page().querySelector('#chkMissing').checked = false;
+                page().querySelector('#editorTitle').textContent = 'New playlist';
+                page().querySelector('#previewBox').style.display = 'none';
+                loadUsers().then(function () {
+                    loadSeries('');
+                    loadMovies('');
+                    showEditor(true);
+                });
+            }
+
+            function editPlaylist(id) {
+                var p = (state.playlists || []).filter(function (x) { return x.Id === id; })[0];
+                if (!p) { return; }
+                state.selectedSeries = {};
+                state.selectedMovies = {};
+                (p.SeriesIds || []).forEach(function (s) { state.selectedSeries[s] = true; });
+                (p.MovieIds || []).forEach(function (m) { state.selectedMovies[m] = true; });
+
+                page().querySelector('#playlistId').value = p.Id;
+                page().querySelector('#txtName').value = p.Name;
+                page().querySelector('#txtTarget').value = p.TargetItemCount;
+                page().querySelector('#txtMovieWeight').value = p.MovieWeight;
+                page().querySelector('#selWeight').value = String(p.WeightMode);
+                page().querySelector('#chkMissing').checked = !!p.IncludeUnairedAndMissing;
+                page().querySelector('#editorTitle').textContent = 'Edit: ' + p.Name;
+                page().querySelector('#previewBox').style.display = 'none';
+
+                loadUsers(p.UserId).then(function () {
+                    loadSeries('');
+                    loadMovies('');
+                    showEditor(true);
+                });
+            }
+
+            function collectDto() {
+                return {
+                    Id: page().querySelector('#playlistId').value,
+                    Name: page().querySelector('#txtName').value,
+                    UserId: page().querySelector('#selUser').value,
+                    TargetItemCount: parseInt(page().querySelector('#txtTarget').value, 10) || 40,
+                    MovieWeight: parseInt(page().querySelector('#txtMovieWeight').value, 10) || 0,
+                    WeightMode: parseInt(page().querySelector('#selWeight').value, 10),
+                    IncludeUnairedAndMissing: page().querySelector('#chkMissing').checked,
+                    SeriesIds: Object.keys(state.selectedSeries),
+                    MovieIds: Object.keys(state.selectedMovies)
+                };
+            }
+
+            function save() {
+                return api('Playlists', 'POST', collectDto()).then(function (saved) {
+                    page().querySelector('#playlistId').value = saved.Id;
+                    return saved;
+                });
+            }
+
+            function generate(id) {
+                Dashboard.showLoadingMsg();
+                api('Playlists/' + id + '/Generate', 'POST').then(function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Playlist generated. Open it from your Jellyfin home / playlists.');
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Nothing to generate (no unwatched episodes?).');
+                });
+            }
+
+            function del(id) {
+                Dashboard.confirm('Delete this smart playlist definition?', 'Delete', function (ok) {
+                    if (!ok) { return; }
+                    Dashboard.showLoadingMsg();
+                    api('Playlists/' + id, 'DELETE').then(function () {
+                        loadPlaylists();
+                    }, function () {
+                        // Even if the server returned an empty body, the delete
+                        // most likely succeeded \u2013 refresh so the UI stays in sync.
+                        loadPlaylists();
+                    });
+                });
+            }
+
+            function preview() {
+                save().then(function (saved) {
+                    api('Playlists/' + saved.Id + '/Preview').then(function (names) {
+                        var ol = page().querySelector('#previewList');
+                        ol.innerHTML = names.slice(0, 100).map(function (n) {
+                            return '<li>' + escapeHtml(n) + '</li>';
+                        }).join('');
+                        page().querySelector('#previewBox').style.display = 'block';
+                    });
+                });
+            }
+
+            function escapeHtml(s) {
+                return (s || '').replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
+            }
+
+            // ---------- wire up ----------
+            page().addEventListener('viewshow', function () {
+                loadPlaylists();
+            });
+
+            page().querySelector('#btnNew').addEventListener('click', newPlaylist);
+            page().querySelector('#btnCancel').addEventListener('click', function () { showEditor(false); });
+
+            page().querySelector('#editorForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                save().then(function () {
+                    Dashboard.hideLoadingMsg();
+                    showEditor(false);
+                    loadPlaylists();
+                });
+                return false;
+            });
+
+            page().querySelector('#btnGenerate').addEventListener('click', function () {
+                Dashboard.showLoadingMsg();
+                save().then(function (saved) {
+                    api('Playlists/' + saved.Id + '/Generate', 'POST').then(function () {
+                        Dashboard.hideLoadingMsg();
+                        showEditor(false);
+                        loadPlaylists();
+                        Dashboard.alert('Playlist generated.');
+                    }, function () {
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert('Saved, but nothing to generate (no unwatched episodes?).');
+                    });
+                });
+            });
+
+            page().querySelector('#btnPreview').addEventListener('click', preview);
+
+            var seriesTimer, movieTimer;
+            page().querySelector('#txtSeriesSearch').addEventListener('input', function (e) {
+                clearTimeout(seriesTimer);
+                var v = e.target.value;
+                seriesTimer = setTimeout(function () { loadSeries(v); }, 300);
+            });
+            page().querySelector('#txtMovieSearch').addEventListener('input', function (e) {
+                clearTimeout(movieTimer);
+                var v = e.target.value;
+                movieTimer = setTimeout(function () { loadMovies(v); }, 300);
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>

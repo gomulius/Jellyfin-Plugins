@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+
+# Scratch / tooling
+ApiDump/
+
+# Rider / VS
+.idea/
+.vs/
+
+# Packaged plugin zips
+*.zip
+
+# OS
+Thumbs.db
+.DS_Store

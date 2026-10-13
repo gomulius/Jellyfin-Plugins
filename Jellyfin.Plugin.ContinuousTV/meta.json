@@ -1,0 +1,17 @@
+{
+  "category": "General",
+  "changelog": "Initial release: smart continuous-TV playlist generator with proportional, resume-aware scheduling.",
+  "description": "Build a smart, never-ending playlist that mixes the next unwatched episode from several series (and optional movies) the way an old TV channel would, sampling longer series proportionally more often than short ones.",
+  "guid": "b1e7a4d2-6c3f-4a8e-9d21-7f0c5a9b3e14",
+  "name": "Continuous TV",
+  "overview": "TV-style continuous playback across multiple series and movies.",
+  "owner": "local",
+  "targetAbi": "12.0.0.0",
+  "timestamp": "2026-10-02T16:00:00.0000000Z",
+  "version": "1.0.0.0",
+  "status": "Active",
+  "autoUpdate": false,
+  "assemblies": [
+    "Jellyfin.Plugin.ContinuousTV.dll"
+  ]
+}
